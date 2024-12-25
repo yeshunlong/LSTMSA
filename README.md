@@ -5,10 +5,10 @@
 ## Motivation
 
 ![Our motivation 1](loss.png)
-Our model facilitates a slower rate of exponential decay in the learning process, promoting better long-term memory retention and a more stable convergence than traditional LSTM networks.
+- Our model facilitates a slower rate of exponential decay in the learning process, promoting better long-term memory retention and a more **stable convergence** than traditional LSTM networks.
 
 ![Our motivation 2](rank.png)
-Our model reserves high-dimensional feature representations by leveraging the original LSTM structure, which enhances the learning of scaling factors and improves initialization to help avoid rank collapse issue in the self-attention mechanism.
+- Our model reserves high-dimensional feature representations by leveraging the original LSTM structure, which enhances the learning of scaling factors and improves initialization to help avoid **rank collapse** issue in the self-attention mechanism.
 
 ## Structure
 
