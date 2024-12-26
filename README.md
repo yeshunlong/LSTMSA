@@ -12,7 +12,7 @@
 
 ## Structure
 
-![Deeply fusing LSTM and SA proposed in the paper](module_white.png)
+![Deeply fusing LSTM and SA proposed in the paper](structure.png)
 
 ## Requirements
 
