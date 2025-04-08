@@ -22,7 +22,8 @@ from dataset import ACDCdataset, RandomGenerator
 from encoder import MTUNet
 from model import LSTMSA
 
-# nohup python -u train.py > train.log 2>&1 &
+# train: nohup python -u train.py > train.log 2>&1 &
+# test: python train.py --checkpoint ./checkpoint/best_model.pth --just_test --test_save_dir ./prediction
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--batch_size", default=8, help="batch size")
@@ -32,18 +33,40 @@ parser.add_argument("--img_size", default=224)
 parser.add_argument("--save_path", default="./checkpoint/")
 parser.add_argument("--n_gpu", default=1)
 parser.add_argument("--checkpoint", default=None)
-parser.add_argument("--list_dir", default="../../../data/ACDC/lists_ACDC")
-parser.add_argument("--root_dir", default="../../../data/ACDC/")
-parser.add_argument("--volume_path", default="../../../data/ACDC/test")
+parser.add_argument("--list_dir", default="./ACDC/lists_ACDC")
+parser.add_argument("--root_dir", default="./ACDC/")
+parser.add_argument("--volume_path", default="./ACDC/test")
 parser.add_argument("--z_spacing", default=10)
 parser.add_argument("--num_classes", default=4)
-parser.add_argument('--test_save_dir', default=None) # suggest default='./prediction'
+parser.add_argument('--test_save_dir', default=None) # suggest: './prediction'
 parser.add_argument("--patches_size", default=16)
 parser.add_argument("--n_skip", default=1)
+parser.add_argument("--just_test", default=False, action="store_true")
+
+# train: python -u train.py --use_gradient_clipping > log/train_gradient_clipping.log 2>&1 &
+# train: python -u train.py --use_state_space_sequencing > log/train_state_space_sequencing.log 2>&1 &
+
+# train: python -u train.py --use_skip_connections_and_MLP > log/train_skip_connections_and_MLP.log 2>&1 &
+# train: python -u train.py --use_lambda_skip_connections > log/train_lambda_skip_connections.log 2>&1 &
+# train: python -u train.py --use_depth_dependent_residual_scaling > log/train_depth_dependent_residual_scaling.log 2>&1 &
+
+parser.add_argument("--use_gradient_clipping", default=False, action="store_true")
+parser.add_argument("--use_state_space_sequencing", default=False, action="store_true")
+parser.add_argument("--use_skip_connections_and_MLP", default=False, action="store_true")
+parser.add_argument("--use_lambda_skip_connections", default=False, action="store_true")
+parser.add_argument("--use_depth_dependent_residual_scaling", default=False, action="store_true")
+
 args = parser.parse_args()
 
-encoder = MTUNet(64)
-model = LSTMSA(num_classes=args.num_classes, encoder=encoder)
+use_gradient_clipping = args.use_gradient_clipping
+use_state_space_sequencing = args.use_state_space_sequencing
+use_skip_connections_and_MLP = args.use_skip_connections_and_MLP
+use_lambda_skip_connections = args.use_lambda_skip_connections
+use_depth_dependent_residual_scaling = args.use_depth_dependent_residual_scaling
+
+encoder = MTUNet(64, use_skip_connections_and_MLP=use_skip_connections_and_MLP, use_depth_dependent_residual_scaling=use_depth_dependent_residual_scaling)
+model = LSTMSA(num_classes=args.num_classes, encoder=encoder, use_state_space_sequencing=use_state_space_sequencing,
+               use_lambda_skip_connections=use_lambda_skip_connections)
 
 if args.checkpoint:
     model.load_state_dict(torch.load(args.checkpoint))
@@ -61,6 +84,12 @@ if args.n_gpu > 1:
     model = nn.DataParallel(model)
 
 model = model.cuda()
+
+if args.just_test:
+    avg_dcs, avg_hd = inference(args, model, testloader, args.test_save_dir)
+    print("test avg_dsc: %f avg_hd: %f" % (avg_dcs, avg_hd))
+    exit(0)
+    
 model.train()
 ce_loss = CrossEntropyLoss()
 dice_loss = DiceLoss(args.num_classes)
@@ -72,7 +101,6 @@ iter_num = 0
 Loss = []
 Test_Accuracy = []
 
-Best_dcs = 0.8
 logging.basicConfig(level=logging.INFO,
                    format='%(asctime)s   %(levelname)s   %(message)s')
 
@@ -101,6 +129,10 @@ for epoch in iterator:
 
         optimizer.zero_grad()
         loss.backward()
+        
+        if use_gradient_clipping:
+            torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
+        
         optimizer.step()
 
         lr_ = base_lr * (1.0 - iter_num / max_iterations) ** 0.9

@@ -16,8 +16,9 @@
 
 ## Requirements
 
-1. pytorch
+1. pytorch >= 1.11.0
 2. numpy
+3. medpy
 
 ## Dataset
 

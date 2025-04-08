@@ -176,7 +176,7 @@ class LSTMLayer(nn.Module):
 
 
 class LSTMSA(nn.Module):
-    def __init__(self, input_channels=64, hidden_channels=[64], kernel_size=5, bias=True, num_classes=4, attenion_size=224*224, encoder=None):
+    def __init__(self, input_channels=64, hidden_channels=[64], kernel_size=5, bias=True, num_classes=4, attenion_size=224*224, encoder=None, use_state_space_sequencing=False, use_lambda_skip_connections=False):
         super(LSTMSA, self).__init__()
         self.encoder = encoder
         self.lstmlayer = LSTMLayer(input_channels, hidden_channels, kernel_size, bias, num_classes, attenion_size)

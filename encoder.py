@@ -462,7 +462,7 @@ class decoder_block(nn.Module):
 
 
 class MTUNet(nn.Module):
-    def __init__(self, out_ch=4):
+    def __init__(self, out_ch=4, use_skip_connections_and_MLP=False, use_depth_dependent_residual_scaling=False):
         super(MTUNet, self).__init__()
         self.stem = Stem()
         self.encoder = nn.ModuleList()
