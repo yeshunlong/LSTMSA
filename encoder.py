@@ -465,6 +465,7 @@ class MTUNet(nn.Module):
     def __init__(self, out_ch=4, use_skip_connections_and_MLP=False, use_depth_dependent_residual_scaling=False):
         super(MTUNet, self).__init__()
         self.stem = Stem()
+        self.out_ch = out_ch
         self.encoder = nn.ModuleList()
         self.bottleneck = nn.Sequential(EAmodule(configs["bottleneck"]),
                                         EAmodule(configs["bottleneck"]))
@@ -479,8 +480,23 @@ class MTUNet(nn.Module):
             self.decoder.append(decoder_block(dim, False))
         self.decoder.append(decoder_block(configs["decoder"][-1], True))
         self.SegmentationHead = nn.Conv2d(64, out_ch, 1)
+        
+        self.use_skip_connections_and_MLP = use_skip_connections_and_MLP
+        if use_skip_connections_and_MLP:
+            self.mlp = nn.Sequential(
+                nn.Linear(64, 64),
+                nn.ReLU(),
+                nn.Linear(64, out_ch)
+            )
+            
+        self.use_depth_dependent_residual_scaling = use_depth_dependent_residual_scaling
+        layer_num, total_layer = len(configs["encoder"]), len(configs["encoder"]) + len(configs["decoder"])
+        self.scale = layer_num / total_layer
 
     def forward(self, x):
+        
+        residual = x
+        
         if x.size()[1] == 1:
             x = x.repeat(1, 3, 1, 1)
         x, features = self.stem(x)  #(B, N, C) (1, 196, 256)
@@ -502,6 +518,15 @@ class MTUNet(nn.Module):
 
         x = self.decoder_stem(x, features)
         x = self.SegmentationHead(x)
+        
+        if self.use_skip_connections_and_MLP:
+            x = x.permute(0, 2, 3, 1)
+            x = self.mlp(x)
+            x = x.permute(0, 3, 1, 2)
+            
+        if self.use_depth_dependent_residual_scaling:
+            x = self.scale * x + residual * (1 - self.scale)
+            
         return x
 
 

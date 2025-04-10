@@ -1,6 +1,7 @@
 # Enhancing Medical Image Segmentation with Self-Attention-Embedded LSTM Mechanism
 
 - Paper for IEEE Transactions on Instrumentation and Measurement source code is available. (Under Review) [2024.12.26]
+- Source code is updated for major revision. [2025.04.18]
 
 ## Motivation
 
@@ -19,6 +20,7 @@
 1. pytorch >= 1.11.0
 2. numpy
 3. medpy
+4. pip install git+https://github.com/TariqAHassan/S4Torch
 
 ## Dataset
 

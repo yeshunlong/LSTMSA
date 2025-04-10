@@ -28,7 +28,7 @@ from model import LSTMSA
 parser = argparse.ArgumentParser()
 parser.add_argument("--batch_size", default=8, help="batch size")
 parser.add_argument("--lr", default=0.0001, help="learning rate")
-parser.add_argument("--max_epochs", default=200)
+parser.add_argument("--max_epochs", default=100)
 parser.add_argument("--img_size", default=224)
 parser.add_argument("--save_path", default="./checkpoint/")
 parser.add_argument("--n_gpu", default=1)
@@ -43,12 +43,12 @@ parser.add_argument("--patches_size", default=16)
 parser.add_argument("--n_skip", default=1)
 parser.add_argument("--just_test", default=False, action="store_true")
 
-# train: python -u train.py --use_gradient_clipping > log/train_gradient_clipping.log 2>&1 &
-# train: python -u train.py --use_state_space_sequencing > log/train_state_space_sequencing.log 2>&1 &
+# train: nohup python -u train.py --use_gradient_clipping > log/train_gradient_clipping.log 2>&1 &
+# train: nohup python -u train.py --use_state_space_sequencing > log/train_state_space_sequencing.log 2>&1 &
 
-# train: python -u train.py --use_skip_connections_and_MLP > log/train_skip_connections_and_MLP.log 2>&1 &
-# train: python -u train.py --use_lambda_skip_connections > log/train_lambda_skip_connections.log 2>&1 &
-# train: python -u train.py --use_depth_dependent_residual_scaling > log/train_depth_dependent_residual_scaling.log 2>&1 &
+# train: nohup python -u train.py --use_skip_connections_and_MLP > log/train_skip_connections_and_MLP.log 2>&1 &
+# train: nohup python -u train.py --use_lambda_skip_connections > log/train_lambda_skip_connections.log 2>&1 &
+# train: nohup python -u train.py --use_depth_dependent_residual_scaling > log/train_depth_dependent_residual_scaling.log 2>&1 &
 
 parser.add_argument("--use_gradient_clipping", default=False, action="store_true")
 parser.add_argument("--use_state_space_sequencing", default=False, action="store_true")
