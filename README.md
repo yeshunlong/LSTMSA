@@ -20,7 +20,7 @@
 1. pytorch >= 1.11.0
 2. numpy
 3. medpy
-4. pip install git+https://github.com/TariqAHassan/S4Torch
+4. S4Torch (you can install it using `pip install git+https://github.com/TariqAHassan/S4Torch`)
 
 ## Dataset
 
