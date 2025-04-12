@@ -1,7 +1,7 @@
 # Enhancing Medical Image Segmentation with Self-Attention-Embedded LSTM Mechanism
 
 - Paper for IEEE Transactions on Instrumentation and Measurement source code is available. (Under Review) [2024.12.26]
-- Source code is updated for major revision. [2025.04.18]
+- Source code is updated for major revision. [2025.04.12]
 
 ## Motivation
 
