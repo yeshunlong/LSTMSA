@@ -62,9 +62,25 @@ class PositionEncoding(nn.Module):
         return self.dropout(x)
 
 
+from s4torch import S4Model
+class StateSpaceSequencing(nn.Module):
+    def __init__(self, input_dim, hidden_dim, seq_len):
+        super(StateSpaceSequencing, self).__init__()
+        self.s4 = S4Model(d_model=hidden_dim, l_max=64, n=8, d_input=seq_len, d_output=seq_len, n_blocks=1)
+        
+    def forward(self, x):
+        batch_size, seq_len, height, width = x.size()
+        x = x.view(batch_size, seq_len, -1)
+        x = self.s4(x)
+        x = x.view(batch_size, -1, height, width)
+        return x
+
+
 class ConvLSTMCell(nn.Module):
     def __init__(self, input_channels, hidden_channels,
-                 kernel_size, bias=True, attenion_size=224*224):
+                 kernel_size, bias=True, attenion_size=224*224,
+                    use_state_space_sequencing=False,
+                    use_lambda_skip_connections=False):
         super(ConvLSTMCell, self).__init__()
         self.input_channels = input_channels
         self.hidden_channels = hidden_channels
@@ -79,6 +95,14 @@ class ConvLSTMCell(nn.Module):
         self.cross_attention = Attention(query_dim=attenion_size)
         self.fusion = FusionModule(input_dim=hidden_channels + hidden_channels, hidden_dim=hidden_channels)
         self.position_encoding = PositionEncoding(d_model=hidden_channels, max_seq_len=attenion_size)
+        
+        self.use_state_space_sequencing = use_state_space_sequencing
+        if use_state_space_sequencing:
+            self.state_space_sequencing = StateSpaceSequencing(input_dim=hidden_channels, hidden_dim=hidden_channels, seq_len=attenion_size)
+        
+        self.use_lambda_skip_connections = use_lambda_skip_connections
+        if use_lambda_skip_connections == True:
+            self.lambda_scale = nn.Parameter(torch.ones(1))
 
     @staticmethod
     def init_hidden(batch_size, hidden_c, shape):
@@ -89,6 +113,11 @@ class ConvLSTMCell(nn.Module):
 
     def forward(self, input_tensor, cur_state):
         h_cur, c_cur = cur_state
+        # step 0: state space sequencing
+        if self.use_state_space_sequencing:
+            h_cur = self.state_space_sequencing(h_cur)
+            c_cur = self.state_space_sequencing(c_cur)
+            return h_cur, c_cur
         # step 1: cross attention
         query, key, value = self.get_qkv(input_tensor, cur_state)
         query, key, value = query.view(query.size(0), -1, query.size(2) * query.size(3)), \
@@ -114,6 +143,10 @@ class ConvLSTMCell(nn.Module):
         # step 5: calculate next state
         c_next = f * c_cur + position_encoding
         h_next = o * torch.tanh(c_next) + i * g + position_encoding
+        # step 6: add lambda skip connections
+        if self.use_lambda_skip_connections:
+            gate = torch.sigmoid(self.lambda_scale * h_next.mean(dim=1, keepdim=True))
+            h_next = gate * h_next + (1 - gate) * h_cur
         return h_next, c_next
 
     def get_qkv(self, input_tensor, cur_state):
@@ -123,7 +156,7 @@ class ConvLSTMCell(nn.Module):
 
 
 class ConvLSTM(nn.Module):
-    def __init__(self, input_channels, hidden_channels, kernel_size, bias=True, attenion_size=224*224):
+    def __init__(self, input_channels, hidden_channels, kernel_size, bias=True, attenion_size=224*224, use_state_space_sequencing=False, use_lambda_skip_connections=False):
         super(ConvLSTM, self).__init__()
         self.input_channels = [input_channels] + hidden_channels
         self.hidden_channels = hidden_channels
@@ -134,7 +167,9 @@ class ConvLSTM(nn.Module):
         self.attenion_size = attenion_size
         for layer in range(self.num_layers):
             name = 'cell{}'.format(layer)
-            cell = ConvLSTMCell(self.input_channels[layer], self.hidden_channels[layer], self.kernel_size, self.bias, self.attenion_size)
+            cell = ConvLSTMCell(self.input_channels[layer], self.hidden_channels[layer], self.kernel_size, self.bias, self.attenion_size,
+                                use_state_space_sequencing=use_state_space_sequencing,
+                                use_lambda_skip_connections=use_lambda_skip_connections)
             setattr(self, name, cell)
             self.all_layers.append(cell)
 
@@ -153,10 +188,10 @@ class ConvLSTM(nn.Module):
 
 
 class LSTMLayer(nn.Module):
-    def __init__(self, input_channels, hidden_channels, kernel_size, bias=True, num_classes=4, attenion_size=224*224):
+    def __init__(self, input_channels, hidden_channels, kernel_size, bias=True, num_classes=4, attenion_size=224*224, use_state_space_sequencing=False, use_lambda_skip_connections=False):
         super(LSTMLayer, self).__init__()
-        self.forward_net = ConvLSTM(input_channels, hidden_channels, kernel_size, bias, attenion_size)
-        self.reverse_net = ConvLSTM(input_channels, hidden_channels, kernel_size, bias, attenion_size)
+        self.forward_net = ConvLSTM(input_channels, hidden_channels, kernel_size, bias, attenion_size, use_state_space_sequencing, use_lambda_skip_connections)
+        self.reverse_net = ConvLSTM(input_channels, hidden_channels, kernel_size, bias, attenion_size, use_state_space_sequencing, use_lambda_skip_connections)
         self.conv = nn.Conv2d(2 * hidden_channels[-1], num_classes, kernel_size=1)
 
     def forward(self, x1, x2, x3):
@@ -176,10 +211,10 @@ class LSTMLayer(nn.Module):
 
 
 class LSTMSA(nn.Module):
-    def __init__(self, input_channels=64, hidden_channels=[64], kernel_size=5, bias=True, num_classes=4, attenion_size=224*224, encoder=None):
+    def __init__(self, input_channels=64, hidden_channels=[64], kernel_size=5, bias=True, num_classes=4, attenion_size=224*224, encoder=None, use_state_space_sequencing=False, use_lambda_skip_connections=False):
         super(LSTMSA, self).__init__()
         self.encoder = encoder
-        self.lstmlayer = LSTMLayer(input_channels, hidden_channels, kernel_size, bias, num_classes, attenion_size)
+        self.lstmlayer = LSTMLayer(input_channels, hidden_channels, kernel_size, bias, num_classes, attenion_size, use_state_space_sequencing, use_lambda_skip_connections)
 
     def forward(self, x1, x2, x3):
         x1 = self.encoder(x1)

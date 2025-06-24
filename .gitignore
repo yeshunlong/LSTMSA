@@ -159,4 +159,12 @@ cython_debug/
 #.idea/
 
 # Hide sensitive information before paper is accepted
+log
 *.pth
+prediction
+
+ACDC
+Polyp
+Synapse
+ISIC
+
